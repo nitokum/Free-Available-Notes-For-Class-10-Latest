@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Sharing Network Platform</title>
+    <style>
+        :root { --primary: #4f46e5; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 40px 20px; color: #1f2937; }
+        .wrapper { max-width: 700px; margin: 0 auto; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .banner { display: none; padding: 15px; border-radius: 8px; font-weight: bold; margin-bottom: 25px; }
+        .split { display: flex; gap: 20px; }
+        .box { flex: 1; background: #fafafa; border: 1px solid #e5e7eb; padding: 20px; border-radius: 8px; }
+        input[type="text"], input[type="password"], input[type="email"] { width: 100%; padding: 10px; margin: 10px 0 15px 0; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
+        .btn { background: var(--primary); color: white; border: none; padding: 11px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .btn-delete { background: var(--danger); margin-left: 10px; }
+        .note-item { background: white; padding: 15px; border-radius: 8px; margin-top: 12px; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .note-item a { color: var(--primary); text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <div id="statusIndicator" class="banner"></div>
+
+        <!-- Authentication Gateway Box Area -->
+        <div id="authTerminal" class="split">
+            <div class="box">
+                <h3>📝 Email Registration</h3>
+                <form action="/auth/request-otp" method="POST">
+                    <label>Enter Your Email Address</label>
+                    <input type="email" name="email" required placeholder="name@domain.com">
+                    <label>Create a Security Password</label>
+                    <input type="password" name="password" required placeholder="••••••••">
+                    <button type="submit" class="btn">Send Verification Code</button>
+                </form>
+            </div>
+            <div class="box">
+                <h3>🔑 Portal Sign In</h3>
+                <form action="/auth/login" method="POST">
+                    <label>Email Address or Admin Email</label>
+                    <input type="text" name="username" required placeholder="admin@website.com">
+                    <label>Password</label>
+                    <input type="password" name="password" required placeholder="••••••••">
+                    <button type="submit" class="btn">Sign In</button>
+                </form>
+            </div>
+        </div>
+        <br id="spacer">
+
+        <!-- Upload Module Restricted View Area -->
+        <div class="card" id="developerUploadContainer" style="display: none;">
+            <h2>📤 Developer Master Upload Console</h2>
+            <form action="/action/upload" method="POST" enctype="multipart/form-data">
+                <input type="file" name="noteFile" required>
+                <button type="submit" class="btn">Upload to Database Feed</button>
+            </form>
+        </div>
+
+        <h2>🌐 Shared Public Notes</h2>
+        <div id="libraryContainer">Loading documentation files...</div>
+    </div>
+
+    <script>
+        let isUserAdmin = false;
+
+        fetch('/api/auth-state')
+            .then(res => res.json())
+            .then(state => {
+                if(state.isLoggedIn || state.isAdmin) {
+                    isUserAdmin = state.isAdmin;
+                    document.getElementById('authTerminal').style.display = 'none';
+                    if(document.getElementById('spacer')) document.getElementById('spacer').style.display = 'none';
+                    
+                    const bar = document.getElementById('statusIndicator');
+                    bar.style.display = 'block';
+                    
+                    if (isUserAdmin) {
+                        bar.style.background = '#fef3c7';
+                        bar.style.color = '#92400e';
+                        bar.innerHTML = `🛠️ <strong>Developer Admin Mode Active</strong>. Upload console unlocked!`;
+                        document.getElementById('developerUploadContainer').style.display = 'block'; // Only visible to admin!
+                    } else {
+                        bar.style.background = '#d1fae5';
+                        bar.style.color = '#065f46';
+                        bar.innerHTML = `🛡️ Verified Account Session: <strong>${state.username}</strong>. File downloads unlocked!`;
+                    }
+                }
+                loadNotes();
+            });
+
+        function loadNotes() {
+            fetch('/api/notes-inventory')
+                .then(res => res.json())
+                .then(items => {
+                    const container = document.getElementById('libraryContainer');
+                    if(items.length === 0) {
+                        container.innerHTML = '<p style="color: #6b7280; font-style: italic;">No uploaded materials discovered inside database folder yet.</p>';
+                        return;
+                    }
+                    container.innerHTML = '';
+                    items.forEach(file => {
+                        const originalName = file.substring(file.indexOf('-') + 1);
+                        
+                        let deleteForm = '';
+                        if (isUserAdmin) {
+                            deleteForm = `
+                                <form action="/admin/erase/${file}" method="POST" style="margin:0;">
+                                    <button type="submit" class="btn btn-delete">🗑️ Delete</button>
+                                </form>`;
+                        }
+
+                        container.innerHTML += `
+                            <div class="note-item">
+                                <div>
+                                    <p style="margin:0 0 5px 0; font-weight:500;">📄 ${originalName}</p>
+                                    <a href="/uploads/${file}" target="_blank">📥 View / Download PDF</a>
+                                </div>
+                                ${deleteForm}
+                            </div>`;
+                    });
+                });
+        }
+    </script>
+</body>
+</html>
